@@ -1,6 +1,8 @@
 package br.mackenzie;
 
 import com.badlogic.gdx.Game;
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.audio.Music;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 
@@ -11,6 +13,7 @@ public class MainGame extends Game {
 
     public SpriteBatch batch;
     public OrthographicCamera camera;
+
 
     @Override
     public void create() {
