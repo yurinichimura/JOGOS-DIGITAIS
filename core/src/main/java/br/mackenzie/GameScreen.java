@@ -14,6 +14,8 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 
 public class GameScreen implements Screen {
 
+    private ObstacleSystem obstacleSystem;
+
     private Texture MacDoodle;
     private Sprite MacDoodleSprite;
 
@@ -31,33 +33,45 @@ public class GameScreen implements Screen {
 
     @Override
     public void show() {
+        // Limita o FPS (opcional)
         Gdx.graphics.setForegroundFPS(60);
 
-        // mundo lógico: 8 x 5 unidades
-        float worldWidth = 8f;
+        // Mundo lógico em UNIDADES (não pixels)
+        float worldWidth  = 8f;
         float worldHeight = 5f;
 
-        // câmera ortográfica + viewport
+        // Câmera + viewport em unidades do mundo
         camera = new OrthographicCamera();
         viewport = new FitViewport(worldWidth, worldHeight, camera);
+        camera.position.set(worldWidth / 2f, worldHeight / 2f, 0f);
+        camera.update();
 
-        // carrega player
+        // Carrega player
         MacDoodle = new Texture("MacDoodle.png");
         MacDoodleSprite = new Sprite(MacDoodle);
         MacDoodleSprite.setSize(1.4f, 1.4f);
 
-        // coloca o player inicialmente no centro do mundo
+        // Posição inicial (centro do mundo)
         MacDoodleSprite.setPosition(
             worldWidth / 2f - MacDoodleSprite.getWidth() / 2f,
             worldHeight / 2f - MacDoodleSprite.getHeight() / 2f
         );
 
-        // parallax
+        // Obstáculos estáticos aleatórios em UNIDADES do mundo
+        // (não use WIDTH/HEIGHT em pixels aqui)
+        obstacleSystem = new ObstacleSystem(
+            6,            // quantidade de obstáculos (ajuste se quiser)
+            worldWidth,
+            worldHeight
+        );
+
+        // Parallax em unidades do mundo
         parallaxBg = new ParallaxBackground(worldWidth, worldHeight);
 
-        // usa o SpriteBatch global do jogo
+        // Usa o SpriteBatch global do jogo
         spriteBatch = game.batch;
     }
+
 
     private void input() {
         float speed = 4f; // unidades por segundo
@@ -124,14 +138,36 @@ public class GameScreen implements Screen {
 
     @Override
     public void render(float delta) {
-        input();
-        logic();
-        draw();
+        // ... mantenha sua lógica já existente (input, update etc.)
+
+        // Projeção correta
+        spriteBatch.setProjectionMatrix(camera.combined);
+
+        spriteBatch.begin();
+
+        // Desenhe seu fundo/parallax antes (se tiver método próprio)
+        if (parallaxBg != null) {
+            parallaxBg.draw(spriteBatch, camera); // ou o método que você já usa
+        }
+
+        // Player
+        if (MacDoodleSprite != null) {
+            MacDoodleSprite.draw(spriteBatch);
+        }
+
+        // *** NOVO: Obstáculos ***
+        if (obstacleSystem != null) {
+            obstacleSystem.draw(spriteBatch);
+        }
+
+        spriteBatch.end();
     }
 
     @Override
     public void resize(int width, int height) {
-        viewport.update(width, height, true);
+        if (viewport != null) {
+            viewport.update(width, height, true); // true recentra a câmera
+        }
     }
 
     @Override public void pause() {}
@@ -140,7 +176,8 @@ public class GameScreen implements Screen {
 
     @Override
     public void dispose() {
-        MacDoodle.dispose();
-        parallaxBg.dispose();
+        if (MacDoodle != null) MacDoodle.dispose();
+        if (obstacleSystem != null) obstacleSystem.dispose();
+        if (parallaxBg != null) parallaxBg.dispose(); // se sua classe tiver dispose()
     }
 }
