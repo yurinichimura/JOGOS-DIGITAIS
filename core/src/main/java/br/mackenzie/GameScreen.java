@@ -10,14 +10,18 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.badlogic.gdx.graphics.OrthographicCamera;
 
 public class GameScreen implements Screen {
 
-    private Texture backgroundTexture;
     private Texture MacDoodle;
+    private Sprite MacDoodleSprite;
+
     private SpriteBatch spriteBatch;
     private FitViewport viewport;
-    private Sprite MacDoodleSprite;
+    private OrthographicCamera camera;
+
+    private ParallaxBackground parallaxBg;
 
     private final MainGame game;
 
@@ -29,50 +33,92 @@ public class GameScreen implements Screen {
     public void show() {
         Gdx.graphics.setForegroundFPS(60);
 
-        backgroundTexture = new Texture("background.png");
-        MacDoodle = new Texture("MacDoodle.png");
+        // mundo lógico: 8 x 5 unidades
+        float worldWidth = 8f;
+        float worldHeight = 5f;
 
+        // câmera ortográfica + viewport
+        camera = new OrthographicCamera();
+        viewport = new FitViewport(worldWidth, worldHeight, camera);
+
+        // carrega player
+        MacDoodle = new Texture("MacDoodle.png");
         MacDoodleSprite = new Sprite(MacDoodle);
         MacDoodleSprite.setSize(1.4f, 1.4f);
 
-        spriteBatch = game.batch; // usa o SpriteBatch global
-        viewport = new FitViewport(8, 5);
+        // coloca o player inicialmente no centro do mundo
+        MacDoodleSprite.setPosition(
+            worldWidth / 2f - MacDoodleSprite.getWidth() / 2f,
+            worldHeight / 2f - MacDoodleSprite.getHeight() / 2f
+        );
+
+        // parallax
+        parallaxBg = new ParallaxBackground(worldWidth, worldHeight);
+
+        // usa o SpriteBatch global do jogo
+        spriteBatch = game.batch;
     }
 
     private void input() {
-        float speed = 4f;
+        float speed = 4f; // unidades por segundo
         float delta = Gdx.graphics.getDeltaTime();
 
-        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
-            MacDoodleSprite.translateX(speed * delta);
-        } else if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
-            MacDoodleSprite.translateX(-speed * delta);
-        } else if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
-            MacDoodleSprite.translateY(speed * delta);
-        } else if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
-            MacDoodleSprite.translateY(-speed * delta);
+        float dx = 0f;
+        float dy = 0f;
+
+        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT) || Gdx.input.isKeyPressed(Input.Keys.D)) {
+            dx += 1f;
         }
+        if (Gdx.input.isKeyPressed(Input.Keys.LEFT) || Gdx.input.isKeyPressed(Input.Keys.A)) {
+            dx -= 1f;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.UP) || Gdx.input.isKeyPressed(Input.Keys.W)) {
+            dy += 1f;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.DOWN) || Gdx.input.isKeyPressed(Input.Keys.S)) {
+            dy -= 1f;
+        }
+
+        // normaliza diagonal pra não andar mais rápido em 45°
+        if (dx != 0f || dy != 0f) {
+            float len = (float)Math.sqrt(dx*dx + dy*dy);
+            dx /= len;
+            dy /= len;
+        }
+
+        MacDoodleSprite.translate(dx * speed * delta, dy * speed * delta);
     }
 
     private void logic() {
-        float worldWidth = viewport.getWorldWidth();
-        float worldHeight = viewport.getWorldHeight();
+        // NÃO vamos mais limitar o MacDoodle nas bordas
+        // então removemos o MathUtils.clamp
 
-        float MacDoodleWidth = MacDoodleSprite.getWidth();
-        float MacDoodleHeight = MacDoodleSprite.getHeight();
+        float w = MacDoodleSprite.getWidth();
+        float h = MacDoodleSprite.getHeight();
 
-        MacDoodleSprite.setX(MathUtils.clamp(MacDoodleSprite.getX(), 0, worldWidth - MacDoodleWidth));
-        MacDoodleSprite.setY(MathUtils.clamp(MacDoodleSprite.getY(), 0, worldHeight - MacDoodleHeight));
+        // câmera segue o player
+        camera.position.set(
+            MacDoodleSprite.getX() + w / 2f,
+            MacDoodleSprite.getY() + h / 2f,
+            0f
+        );
+        camera.update();
     }
 
     private void draw() {
         ScreenUtils.clear(Color.BLACK);
+
         viewport.apply();
-        spriteBatch.setProjectionMatrix(viewport.getCamera().combined);
+        spriteBatch.setProjectionMatrix(camera.combined);
 
         spriteBatch.begin();
-        spriteBatch.draw(backgroundTexture, 0, 0, viewport.getWorldWidth(), viewport.getWorldHeight());
+
+        // desenha paralaxe antes do player
+        parallaxBg.draw(spriteBatch, camera);
+
+        // desenha player
         MacDoodleSprite.draw(spriteBatch);
+
         spriteBatch.end();
     }
 
@@ -88,18 +134,13 @@ public class GameScreen implements Screen {
         viewport.update(width, height, true);
     }
 
-    @Override
-    public void pause() {}
-
-    @Override
-    public void resume() {}
-
-    @Override
-    public void hide() {}
+    @Override public void pause() {}
+    @Override public void resume() {}
+    @Override public void hide() {}
 
     @Override
     public void dispose() {
-        backgroundTexture.dispose();
         MacDoodle.dispose();
+        parallaxBg.dispose();
     }
 }
